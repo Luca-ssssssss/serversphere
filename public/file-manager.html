@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Manager - ServerSphere</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .file-manager {
+            display: flex;
+            height: calc(100vh - 120px);
+            background: var(--bg-dark);
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: rgba(10, 10, 26, 0.95);
+            border-right: 1px solid var(--border);
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        
+        .server-list {
+            margin-bottom: 2rem;
+        }
+        
+        .server-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            margin: 0.25rem 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .server-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .server-item.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-left: 3px solid var(--primary);
+        }
+        
+        .server-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.75rem;
+        }
+        
+        .server-status.online {
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+        
+        .server-status.offline {
+            background: var(--danger);
+        }
+        
+        .file-tree {
+            margin-top: 1rem;
+        }
+        
+        .tree-item {
+            padding: 0.5rem;
+            margin: 0.125rem 0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+        }
+        
+        .tree-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .tree-item.active {
+            background: rgba(99, 102, 241, 0.2);
+        }
+        
+        .tree-icon {
+            margin-right: 0.5rem;
+            font-size: 1.2rem;
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 1rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+        }
+        
+        .path-breadcrumb {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .breadcrumb-item {
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        
+        .breadcrumb-item:hover {
+            color: var(--text-light);
+        }
+        
+        .breadcrumb-separator {
+            color: var(--text-dim);
+        }
+        
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 1rem;
+            padding: 1rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .file-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .file-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            border-color: var(--primary);
+        }
+        
+        .file-item.selected {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .file-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .file-name {
+            font-size: 0.85rem;
+            word-break: break-all;
+            color: var(--text-light);
+        }
+        
+        .file-size {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+        }
+        
+        .context-menu {
+            position: fixed;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            min-width: 200px;
+            display: none;
+        }
+        
+        .context-menu.active {
+            display: block;
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        .context-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .context-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .preview-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 400px;
+            height: 100vh;
+            background: var(--bg-dark);
+            border-left: 1px solid var(--border);
+            padding: 1rem;
+            overflow-y: auto;
+            transform: translateX(100%);
+            transition: transform 0.3s;
+            z-index: 100;
+        }
+        
+        .preview-panel.active {
+            transform: translateX(0);
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .preview-content {
+            margin-top: 1rem;
+        }
+        
+        .code-editor {
+            width: 100%;
+            height: 400px;
+            background: #1e1e1e;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .image-preview {
+            max-width: 100%;
+            border-radius: 8px;
+        }
+        
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            margin: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .drop-zone.active {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+        
+        .upload-progress {
+            margin-top: 1rem;
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        
+        .search-box {
+            position: relative;
+            width: 300px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-light);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 250px;
+            }
+            
+            .preview-panel {
+                width: 350px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .file-manager {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 300px;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            
+            .preview-panel {
+                width: 100%;
+                height: 70vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <nav class="sidebar">
+            <div class="logo">
+                <div class="sphere-logo"></div>
+                <h1>File Manager</h1>
+            </div>
+            
+            <div class="server-list">
+                <h3>Server</h3>
+                <div id="serverList"></div>
+            </div>
+            
+            <div class="file-tree">
+                <h3>Verzeichnis</h3>
+                <div id="directoryTree"></div>
+            </div>
+        </nav>
+        
+        <main class="main-content">
+            <div class="toolbar">
+                <div class="path-breadcrumb" id="breadcrumb"></div>
+                
+                <div class="toolbar-actions">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="searchInput" placeholder="Dateien suchen...">
+                    </div>
+                    
+                    <button class="btn-small" id="uploadBtn">
+                        <span>📤</span> Hochladen
+                    </button>
+                    
+                    <button class="btn-small" id="newFolderBtn">
+                        <span>📁</span> Ordner
+                    </button>
+                    
+                    <button class="btn-small" id="refreshBtn">
+                        <span>🔄</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-content">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
+                    <h3>Dateien hier ablegen</h3>
+                    <p>oder klicken zum Auswählen</p>
+                    <input type="file" id="fileInput" multiple style="display: none;">
+                </div>
+            </div>
+            
+            <div class="file-grid" id="fileGrid"></div>
+            
+            <div class="upload-progress" id="uploadProgress" style="display: none;">
+                <div>Uploading...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+        </main>
+        
+        <div class="preview-panel" id="previewPanel">
+            <div class="preview-header">
+                <h3 id="previewTitle">Vorschau</h3>
+                <button class="btn-icon" id="closePreview">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="preview-content" id="previewContent"></div>
+        </div>
+        
+        <div class="context-menu" id="contextMenu">
+            <div class="context-item" data-action="open">
+                <span>📄</span> Öffnen
+            </div>
+            <div class="context-item" data-action="edit">
+                <span>✏️</span> Bearbeiten
+            </div>
+            <div class="context-item" data-action="rename">
+                <span>📝</span> Umbenennen
+            </div>
+            <div class="context-item" data-action="download">
+                <span>📥</span> Herunterladen
+            </div>
+            <div class="context-item" data-action="copy">
+                <span>📋</span> Kopieren
+            </div>
+            <div class="context-item" data-action="move">
+                <span>🚚</span> Verschieben
+            </div>
+            <div class="context-item" data-action="compress">
+                <span>🗜️</span> Komprimieren
+            </div>
+            <div class="divider"></div>
+            <div class="context-item" data-action="delete">
+                <span>🗑️</span> Löschen
+            </div>
+            <div class="context-item" data-action="properties">
+                <span>📊</span> Eigenschaften
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class FileManager {
+            constructor() {
+                this.currentServer = null;
+                this.currentPath = '/';
+                this.selectedFiles = new Set();
+                this.clipboard = null;
+                this.init();
+            }
+            
+            init() {
+                this.bindEvents();
+                this.loadServers();
+                this.setupDragAndDrop();
+                this.setupContextMenu();
+            }
+            
+            bindEvents() {
+                document.getElementById('uploadBtn').addEventListener('click', () => this.triggerUpload());
+                document.getElementById('newFolderBtn').addEventListener('click', () => this.createNewFolder());
+                document.getElementById('refreshBtn').addEventListener('click', () => this.refreshCurrent());
+                document.getElementById('closePreview').addEventListener('click', () => this.closePreview());
+                document.getElementById('searchInput').addEventListener('input', (e) => this.searchFiles(e.target.value));
+                
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.context-menu')) {
+                        document.getElementById('contextMenu').classList.remove('active');
+                    }
+                });
+            }
+            
+            async loadServers() {
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch('/api/servers', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to load servers');
+                    
+                    const servers = await response.json();
+                    this.renderServerList(servers);
+                    
+                    if (servers.length > 0) {
+                        this.selectServer(servers[0].id);
+                    }
+                } catch (error) {
+                    console.error('Error loading servers:', error);
+                    this.showError('Failed to load servers');
+                }
+            }
+            
+            renderServerList(servers) {
+                const container = document.getElementById('serverList');
+                container.innerHTML = '';
+                
+                servers.forEach(server => {
+                    const item = document.createElement('div');
+                    item.className = `server-item ${this.currentServer === server.id ? 'active' : ''}`;
+                    item.innerHTML = `
+                        <div class="server-status ${server.online ? 'online' : 'offline'}"></div>
+                        <div class="server-info">
+                            <div class="server-name">${server.name}</div>
+                            <div class="server-version">${server.version}</div>
+                        </div>
+                    `;
+                    
+                    item.addEventListener('click', () => this.selectServer(server.id));
+                    container.appendChild(item);
+                });
+            }
+            
+            async selectServer(serverId) {
+                this.currentServer = serverId;
+                this.currentPath = '/';
+                this.selectedFiles.clear();
+                
+                document.querySelectorAll('.server-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                document.querySelector(`.server-item`).classList.add('active');
+                
+                await this.loadDirectory();
+                await this.loadDirectoryTree();
+            }
+            
+            async loadDirectory(path = this.currentPath) {
+                if (!this.currentServer) return;
+                
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}?path=${encodeURIComponent(path)}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to load directory');
+                    
+                    const data = await response.json();
+                    
+                    if (data.type === 'directory') {
+                        this.currentPath = path;
+                        this.renderBreadcrumb();
+                        this.renderFileGrid(data.files);
+                    } else if (data.type === 'file') {
+                        this.previewFile(data);
+                    }
+                } catch (error) {
+                    console.error('Error loading directory:', error);
+                    this.showError('Failed to load directory');
+                }
+            }
+            
+            async loadDirectoryTree() {
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}?path=/`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to load tree');
+                    
+                    const data = await response.json();
+                    this.renderDirectoryTree(data.files);
+                } catch (error) {
+                    console.error('Error loading directory tree:', error);
+                }
+            }
+            
+            renderDirectoryTree(files, parentElement = document.getElementById('directoryTree'), depth = 0) {
+                parentElement.innerHTML = '';
+                
+                files.filter(f => f.type === 'directory').forEach(file => {
+                    const item = document.createElement('div');
+                    item.className = 'tree-item';
+                    item.style.paddingLeft = `${depth * 20 + 10}px`;
+                    item.innerHTML = `
+                        <span class="tree-icon">📁</span>
+                        <span class="tree-name">${file.name}</span>
+                    `;
+                    
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.loadDirectory(file.path);
+                    });
+                    
+                    parentElement.appendChild(item);
+                });
+            }
+            
+            renderBreadcrumb() {
+                const parts = this.currentPath.split('/').filter(p => p);
+                const container = document.getElementById('breadcrumb');
+                container.innerHTML = '';
+                
+                const rootItem = document.createElement('span');
+                rootItem.className = 'breadcrumb-item';
+                rootItem.textContent = 'Root';
+                rootItem.addEventListener('click', () => this.loadDirectory('/'));
+                container.appendChild(rootItem);
+                
+                let currentPath = '';
+                parts.forEach((part, index) => {
+                    const separator = document.createElement('span');
+                    separator.className = 'breadcrumb-separator';
+                    separator.textContent = ' / ';
+                    container.appendChild(separator);
+                    
+                    currentPath += '/' + part;
+                    
+                    const item = document.createElement('span');
+                    item.className = 'breadcrumb-item';
+                    item.textContent = part;
+                    item.addEventListener('click', () => this.loadDirectory(currentPath));
+                    container.appendChild(item);
+                });
+            }
+            
+            renderFileGrid(files) {
+                const container = document.getElementById('fileGrid');
+                container.innerHTML = '';
+                
+                files.forEach(file => {
+                    const item = document.createElement('div');
+                    item.className = `file-item ${this.selectedFiles.has(file.path) ? 'selected' : ''}`;
+                    item.dataset.path = file.path;
+                    
+                    const icon = file.type === 'directory' ? '📁' : this.getFileIcon(file.name);
+                    const size = file.type === 'directory' ? '' : this.formatSize(file.size);
+                    
+                    item.innerHTML = `
+                        <div class="file-icon">${icon}</div>
+                        <div class="file-name" title="${file.name}">${file.name}</div>
+                        <div class="file-size">${size}</div>
+                    `;
+                    
+                    item.addEventListener('click', (e) => {
+                        if (e.ctrlKey || e.metaKey) {
+                            this.toggleSelectFile(file.path);
+                        } else {
+                            this.selectFile(file.path, file.type);
+                        }
+                    });
+                    
+                    item.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        this.showContextMenu(e, file);
+                    });
+                    
+                    container.appendChild(item);
+                });
+            }
+            
+            getFileIcon(filename) {
+                const ext = filename.split('.').pop().toLowerCase();
+                
+                const icons = {
+                    'jar': '⚙️',
+                    'zip': '🗜️',
+                    'txt': '📄',
+                    'json': '📋',
+                    'yml': '⚙️',
+                    'yaml': '⚙️',
+                    'properties': '⚙️',
+                    'conf': '⚙️',
+                    'cfg': '⚙️',
+                    'log': '📋',
+                    'png': '🖼️',
+                    'jpg': '🖼️',
+                    'jpeg': '🖼️',
+                    'gif': '🖼️',
+                    'html': '🌐',
+                    'js': '📜',
+                    'java': '☕',
+                    'php': '🐘',
+                    'py': '🐍',
+                    'md': '📝',
+                    'pdf': '📕',
+                    'doc': '📘',
+                    'docx': '📘'
+                };
+                
+                return icons[ext] || '📄';
+            }
+            
+            formatSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            }
+            
+            toggleSelectFile(filePath) {
+                if (this.selectedFiles.has(filePath)) {
+                    this.selectedFiles.delete(filePath);
+                } else {
+                    this.selectedFiles.add(filePath);
+                }
+                
+                document.querySelectorAll('.file-item').forEach(item => {
+                    if (this.selectedFiles.has(item.dataset.path)) {
+                        item.classList.add('selected');
+                    } else {
+                        item.classList.remove('selected');
+                    }
+                });
+            }
+            
+            selectFile(filePath, type) {
+                this.selectedFiles.clear();
+                this.selectedFiles.add(filePath);
+                
+                document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                
+                document.querySelector(`.file-item[data-path="${filePath}"]`)?.classList.add('selected');
+                
+                if (type === 'directory') {
+                    this.loadDirectory(filePath);
+                } else {
+                    this.loadDirectory(filePath);
+                }
+            }
+            
+            async previewFile(fileData) {
+                const panel = document.getElementById('previewPanel');
+                const title = document.getElementById('previewTitle');
+                const content = document.getElementById('previewContent');
+                
+                title.textContent = fileData.name;
+                
+                const ext = fileData.name.split('.').pop().toLowerCase();
+                
+                if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext)) {
+                    content.innerHTML = `
+                        <img src="/api/files/${this.currentServer}/download?path=${encodeURIComponent(fileData.path)}" 
+                             class="image-preview" alt="${fileData.name}">
+                    `;
+                } else if (['txt', 'json', 'yml', 'yaml', 'properties', 'conf', 'cfg', 'log', 'md'].includes(ext)) {
+                    content.innerHTML = `
+                        <div class="code-editor" id="codeEditor"></div>
+                        <div style="margin-top: 1rem;">
+                            <button class="btn-primary" id="saveFileBtn">Speichern</button>
+                            <button class="btn-secondary" id="cancelEditBtn">Abbrechen</button>
+                        </div>
+                    `;
+                    
+                    const editor = document.getElementById('codeEditor');
+                    editor.textContent = fileData.content;
+                    
+                    document.getElementById('saveFileBtn').addEventListener('click', async () => {
+                        await this.saveFile(fileData.path, editor.textContent);
+                        panel.classList.remove('active');
+                    });
+                    
+                    document.getElementById('cancelEditBtn').addEventListener('click', () => {
+                        panel.classList.remove('active');
+                    });
+                } else {
+                    content.innerHTML = `
+                        <p>Datei: ${fileData.name}</p>
+                        <p>Größe: ${this.formatSize(fileData.size)}</p>
+                        <p>Änderungsdatum: ${new Date(fileData.modified).toLocaleString()}</p>
+                        <div style="margin-top: 1rem;">
+                            <button class="btn-primary" id="downloadBtn">Herunterladen</button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('downloadBtn').addEventListener('click', () => {
+                        this.downloadFile(fileData.path);
+                    });
+                }
+                
+                panel.classList.add('active');
+            }
+            
+            closePreview() {
+                document.getElementById('previewPanel').classList.remove('active');
+            }
+            
+            async saveFile(path, content) {
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}/edit`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            path: path,
+                            content: content
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to save file');
+                    
+                    this.showSuccess('Datei gespeichert');
+                    this.refreshCurrent();
+                } catch (error) {
+                    console.error('Error saving file:', error);
+                    this.showError('Failed to save file');
+                }
+            }
+            
+            async downloadFile(path) {
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}/download?path=${encodeURIComponent(path)}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to download');
+                    
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = path.split('/').pop();
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                } catch (error) {
+                    console.error('Error downloading file:', error);
+                    this.showError('Failed to download file');
+                }
+            }
+            
+            setupDragAndDrop() {
+                const dropZone = document.getElementById('dropZone');
+                const fileInput = document.getElementById('fileInput');
+                
+                dropZone.addEventListener('click', () => fileInput.click());
+                
+                fileInput.addEventListener('change', (e) => {
+                    this.handleFiles(e.target.files);
+                });
+                
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    });
+                });
+                
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, () => {
+                        dropZone.classList.add('active');
+                    });
+                });
+                
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, () => {
+                        dropZone.classList.remove('active');
+                    });
+                });
+                
+                dropZone.addEventListener('drop', (e) => {
+                    const files = e.dataTransfer.files;
+                    this.handleFiles(files);
+                });
+            }
+            
+            async handleFiles(files) {
+                if (!files.length) return;
+                
+                const formData = new FormData();
+                formData.append('serverId', this.currentServer);
+                formData.append('path', this.currentPath);
+                
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('files', files[i]);
+                }
+                
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}/upload`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (!response.ok) throw new Error('Upload failed');
+                    
+                    this.showSuccess(`${files.length} Datei(en) hochgeladen`);
+                    this.refreshCurrent();
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    this.showError('Upload failed');
+                }
+            }
+            
+            setupContextMenu() {
+                const menu = document.getElementById('contextMenu');
+                
+                menu.querySelectorAll('.context-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        const action = e.currentTarget.dataset.action;
+                        this.handleContextAction(action);
+                        menu.classList.remove('active');
+                    });
+                });
+            }
+            
+            showContextMenu(e, file) {
+                const menu = document.getElementById('contextMenu');
+                menu.style.left = e.pageX + 'px';
+                menu.style.top = e.pageY + 'px';
+                menu.classList.add('active');
+                
+                this.selectedFiles.clear();
+                this.selectedFiles.add(file.path);
+            }
+            
+            handleContextAction(action) {
+                const filePath = Array.from(this.selectedFiles)[0];
+                
+                switch (action) {
+                    case 'open':
+                        this.loadDirectory(filePath);
+                        break;
+                    case 'edit':
+                        this.loadDirectory(filePath);
+                        break;
+                    case 'rename':
+                        this.renameFile(filePath);
+                        break;
+                    case 'download':
+                        this.downloadFile(filePath);
+                        break;
+                    case 'copy':
+                        this.clipboard = { type: 'copy', path: filePath };
+                        break;
+                    case 'move':
+                        this.clipboard = { type: 'move', path: filePath };
+                        break;
+                    case 'compress':
+                        this.compressFile(filePath);
+                        break;
+                    case 'delete':
+                        this.deleteFile(filePath);
+                        break;
+                    case 'properties':
+                        this.showProperties(filePath);
+                        break;
+                }
+            }
+            
+            async renameFile(oldPath) {
+                const newName = prompt('Neuer Name:', oldPath.split('/').pop());
+                if (!newName) return;
+                
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}/rename`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            path: oldPath,
+                            newName: newName
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error('Rename failed');
+                    
+                    this.showSuccess('Datei umbenannt');
+                    this.refreshCurrent();
+                } catch (error) {
+                    console.error('Rename error:', error);
+                    this.showError('Rename failed');
+                }
+            }
+            
+            async deleteFile(path) {
+                if (!confirm('Wirklich löschen?')) return;
+                
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}/delete`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            path: path
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error('Delete failed');
+                    
+                    this.showSuccess('Datei gelöscht');
+                    this.refreshCurrent();
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    this.showError('Delete failed');
+                }
+            }
+            
+            async createNewFolder() {
+                const folderName = prompt('Ordnername:');
+                if (!folderName) return;
+                
+                const newPath = path.join(this.currentPath, folderName);
+                
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}/create`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            path: this.currentPath,
+                            type: 'directory',
+                            name: folderName
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error('Create failed');
+                    
+                    this.showSuccess('Ordner erstellt');
+                    this.refreshCurrent();
+                } catch (error) {
+                    console.error('Create error:', error);
+                    this.showError('Create failed');
+                }
+            }
+            
+            async compressFile(path) {
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}/compress`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            paths: [path],
+                            outputPath: path + '.zip'
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error('Compress failed');
+                    
+                    this.showSuccess('Datei komprimiert');
+                    this.refreshCurrent();
+                } catch (error) {
+                    console.error('Compress error:', error);
+                    this.showError('Compress failed');
+                }
+            }
+            
+            async searchFiles(query) {
+                if (!query.trim()) {
+                    this.refreshCurrent();
+                    return;
+                }
+                
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/files/${this.currentServer}/search?q=${encodeURIComponent(query)}&directory=${encodeURIComponent(this.currentPath)}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (!response.ok) throw new Error('Search failed');
+                    
+                    const data = await response.json();
+                    this.renderFileGrid(data.results);
+                } catch (error) {
+                    console.error('Search error:', error);
+                }
+            }
+            
+            triggerUpload() {
+                document.getElementById('fileInput').click();
+            }
+            
+            refreshCurrent() {
+                this.loadDirectory(this.currentPath);
+            }
+            
+            showSuccess(message) {
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: var(--success);
+                    color: white;
+                    padding: 1rem;
+                    border-radius: 8px;
+                    z-index: 1000;
+                    animation: slideIn 0.3s ease-out;
+                `;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease-out';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
+            
+            showError(message) {
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: var(--danger);
+                    color: white;
+                    padding: 1rem;
+                    border-radius: 8px;
+                    z-index: 1000;
+                    animation: slideIn 0.3s ease-out;
+                `;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease-out';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
+        }
+        
+        const fileManager = new FileManager();
+    </script>
+</body>
+</html>

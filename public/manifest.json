@@ -1,0 +1,21 @@
+{
+  "name": "ServerSphere",
+  "short_name": "SSphere",
+  "description": "Minecraft Server Management Panel",
+  "start_url": "/panel",
+  "display": "standalone",
+  "background_color": "#0A0A1A",
+  "theme_color": "#6366F1",
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

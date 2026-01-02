@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServerSphere - Minecraft Panel</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="assets/icons/logo.svg">
+</head>
+<body>
+    <div class="app-container">
+        <nav class="sidebar">
+            <div class="logo">
+                <div class="sphere-logo"></div>
+                <h1>ServerSphere</h1>
+            </div>
+            <div class="nav-menu">
+                <a href="#dashboard" class="nav-item active">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="#servers" class="nav-item">
+                    <span class="nav-icon">🎮</span>
+                    <span class="nav-text">Server</span>
+                </a>
+                <a href="#files" class="nav-item">
+                    <span class="nav-icon">📁</span>
+                    <span class="nav-text">Files</span>
+                </a>
+                <a href="#backups" class="nav-item">
+                    <span class="nav-icon">💾</span>
+                    <span class="nav-text">Backups</span>
+                </a>
+                <a href="#plugins" class="nav-item">
+                    <span class="nav-icon">🔌</span>
+                    <span class="nav-text">Plugins</span>
+                </a>
+                <a href="#settings" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </a>
+            </div>
+            <div class="user-menu">
+                <div class="user-avatar">
+                    <div class="avatar-sphere"></div>
+                </div>
+                <div class="user-info">
+                    <span class="username">Admin</span>
+                    <span class="user-role">Administrator</span>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-bar">
+                    <input type="text" placeholder="Search servers, players...">
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" title="Notifications">
+                        <span>🔔</span>
+                        <span class="notification-badge">3</span>
+                    </button>
+                    <button class="btn-icon" title="Quick Actions">
+                        <span>⚡</span>
+                    </button>
+                    <button class="btn-icon" id="themeToggle">
+                        <span>🌙</span>
+                    </button>
+                    <select class="lang-select">
+                        <option value="de">🇩🇪 DE</option>
+                        <option value="en">🇬🇧 EN</option>
+                    </select>
+                </div>
+            </header>
+
+            <section class="dashboard-section" id="dashboard">
+                <div class="section-header">
+                    <h2>Dashboard</h2>
+                    <div class="section-actions">
+                        <button class="btn-primary" id="createServer">
+                            <span>+</span> Create Server
+                        </button>
+                        <button class="btn-secondary" id="refreshAll">
+                            <span>🔄</span> Refresh All
+                        </button>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🎮</div>
+                        <div class="stat-info">
+                            <h3>Active Servers</h3>
+                            <div class="stat-value" id="activeServers">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3>Online Players</h3>
+                            <div class="stat-value" id="onlinePlayers">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💾</div>
+                        <div class="stat-info">
+                            <h3>Storage Used</h3>
+                            <div class="stat-value" id="storageUsed">0 GB</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⚡</div>
+                        <div class="stat-info">
+                            <h3>System Load</h3>
+                            <div class="stat-value" id="systemLoad">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="servers-grid" id="serversContainer">
+                </div>
+
+                <div class="console-container" id="consoleSection">
+                    <div class="console-header">
+                        <h3>Server Console</h3>
+                        <div class="console-actions">
+                            <button class="btn-small" id="clearConsole">Clear</button>
+                            <button class="btn-small" id="commandHistory">History</button>
+                        </div>
+                    </div>
+                    <div class="console-output" id="consoleOutput"></div>
+                    <div class="console-input">
+                        <input type="text" id="consoleInput" placeholder="Enter command...">
+                        <button id="sendCommand">Send</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal" id="createServerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Server</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="wizard-steps">
+                    <div class="step active" data-step="1">Type</div>
+                    <div class="step" data-step="2">Version</div>
+                    <div class="step" data-step="3">Settings</div>
+                </div>
+                
+                <form id="serverForm">
+                    <div class="form-step active" data-step="1">
+                        <div class="server-type-grid">
+                            <label class="server-type-card">
+                                <input type="radio" name="serverType" value="vanilla">
+                                <div class="type-icon">🍦</div>
+                                <div class="type-name">Vanilla</div>
+                            </label>
+                            <label class="server-type-card">
+                                <input type="radio" name="serverType" value="paper">
+                                <div class="type-icon">📄</div>
+                                <div class="type-name">Paper</div>
+                            </label>
+                            <label class="server-type-card">
+                                <input type="radio" name="serverType" value="purpur">
+                                <div class="type-icon">💜</div>
+                                <div class="type-name">Purpur</div>
+                            </label>
+                            <label class="server-type-card">
+                                <input type="radio" name="serverType" value="fabric">
+                                <div class="type-icon">🧵</div>
+                                <div class="type-name">Fabric</div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-step" data-step="2">
+                        <select id="serverVersion" class="form-select">
+                            <option value="1.21.1">1.21.1</option>
+                            <option value="1.20.4">1.20.4</option>
+                            <option value="1.19.4">1.19.4</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-step" data-step="3">
+                        <input type="text" id="serverName" placeholder="Server Name" class="form-input">
+                        <input type="number" id="serverPort" placeholder="Port (25565)" class="form-input">
+                        <div class="slider-container">
+                            <label>RAM Allocation: <span id="ramValue">4</span>GB</label>
+                            <input type="range" id="serverRam" min="1" max="32" value="4" class="slider">
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" id="prevStep">Previous</button>
+                        <button type="button" class="btn-primary" id="nextStep">Next</button>
+                        <button type="submit" class="btn-success" id="createServerBtn">Create Server</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
