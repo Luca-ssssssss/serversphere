@@ -17,5 +17,7 @@ Professional Minecraft Server Management Panel with enterprise features and futu
 
 1. Clone repository:
 ```bash
-git clone <repository-url>
-cd serversphere
+wget https://raw.githubusercontent.com/Luca-ssssssss/serversphere/main/install-serversphere.sh
+
+chmod +x install-serversphere.sh
+./install-serversphere.sh
