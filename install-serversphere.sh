@@ -203,14 +203,23 @@ cleanup_previous() {
     print_step "$MSG_CLEANUP"
     
     echo "Stopping existing services..."
-    systemctl stop serversphere 2>/dev/null &
-    SYSPID=$!
-    sleep 1
-    kill -9 $SYSPID 2>/dev/null || true
+    if systemctl is-active --quiet serversphere 2>/dev/null; then
+        systemctl stop serversphere
+        sleep 2
+    fi
     
-    echo "Terminating Node.js processes..."
-    pkill -9 node 2>/dev/null || true
-    sleep 1
+    echo "Stopping Node.js processes on port $PORT..."
+    local node_pids=$(lsof -ti:$PORT 2>/dev/null)
+    if [ -n "$node_pids" ]; then
+        for pid in $node_pids; do
+            kill -TERM $pid 2>/dev/null || true
+            sleep 1
+            kill -9 $pid 2>/dev/null || true
+        done
+    fi
+    
+    echo "Waiting for processes to terminate..."
+    sleep 3
     
     echo "Removing old installation..."
     rm -rf "$INSTALL_DIR" 2>/dev/null || true
@@ -222,7 +231,6 @@ cleanup_previous() {
     
     echo "Reloading systemd..."
     systemctl daemon-reload 2>/dev/null || true
-    sleep 1
     
     print_success "Cleanup completed"
 }
@@ -646,7 +654,7 @@ main() {
     # Start installation
     echo -e "\n${BLUE}$MSG_START${NC}"
     
-    # Step 1: Cleanup
+    # Step 1: Cleanup - NICHT mit SIGTERM/SIGKILL den eigenen Prozess beenden
     cleanup_previous
     
     # Step 2: Update system
