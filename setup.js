@@ -180,6 +180,18 @@ check_root() {
     fi
 }
 
+check_required_tools() {
+    # Check for essential tools
+    local required_tools=("bash" "curl" "wget" "git")
+    
+    for tool in "${required_tools[@]}"; do
+        if ! command -v "$tool" &> /dev/null; then
+            echo "Installing $tool..."
+            apt-get install -y "$tool" 2>/dev/null || true
+        fi
+    done
+}
+
 # ========== INSTALLATIONS-FUNKTIONEN ==========
 
 cleanup_previous() {
@@ -190,10 +202,17 @@ cleanup_previous() {
     pkill -f "node.*server.js" 2>/dev/null || true
     pkill -f "serversphere" 2>/dev/null || true
     
-    # Free ports
-    for port in 3000 3001 3002 3003 3883 80 443; do
-        fuser -k $port/tcp 2>/dev/null || true
-    done
+    # Free ports using lsof (more reliable than fuser)
+    if command -v lsof &> /dev/null; then
+        for port in 3000 3001 3002 3003 3883 80 443; do
+            lsof -ti:$port | xargs kill -9 2>/dev/null || true
+        done
+    elif command -v fuser &> /dev/null; then
+        # Fallback to fuser if lsof is not available
+        for port in 3000 3001 3002 3003 3883 80 443; do
+            fuser -k $port/tcp 2>/dev/null || true
+        done
+    fi
     
     # Remove old installation
     rm -rf "$INSTALL_DIR" 2>/dev/null || true
@@ -563,6 +582,9 @@ main() {
     
     # Check root
     check_root
+    
+    # Check required tools
+    check_required_tools
     
     # Get configuration
     read -p "$MSG_DOMAIN" DOMAIN
