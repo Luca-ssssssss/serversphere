@@ -1,2 +1,1 @@
-# serversphere
-Minecraft panal
+# README.md
