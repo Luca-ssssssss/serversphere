@@ -1,1 +1,0 @@
-// javaDetector.js
