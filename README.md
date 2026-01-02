@@ -2,7 +2,7 @@
 
 Professional Minecraft Server Management Panel with enterprise features and futuristic design.
 
-## Features
+##Features
 - 🌐 Multi-language support (DE/EN)
 - 🎨 Futuristic sphere-based design
 - ⚡ Real-time server monitoring
@@ -10,9 +10,9 @@ Professional Minecraft Server Management Panel with enterprise features and futu
 - 💾 Automated backup system
 - 🔌 Plugin/mod manager
 - 👥 Multi-user system
-- 🔐 Secure authentication
-- 📱 Responsive design
-
+-
+🔐 Secure authentication
+- 📱 Responsive de
 ## Installation
 
 1. Clone repository:
@@ -20,4 +20,13 @@ Professional Minecraft Server Management Panel with enterprise features and futu
 wget https://raw.githubusercontent.com/Luca-ssssssss/serversphere/main/install-serversphere.sh
 
 chmod +x install-serversphere.sh
+
 ./install-serversphere.sh
+
+```
+
+Or just a command
+
+```bash
+
+wget -q https://raw.githubusercontent.com/Luca-ssssssss/serversphere/main/install-serversphere.sh && chmod +x install-serversphere.sh && sudo ./install-serversphere.sh
