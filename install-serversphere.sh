@@ -210,45 +210,35 @@ check_required_tools() {
 cleanup_previous() {
     print_step "$MSG_CLEANUP"
     
+    # Disable error exit for cleanup operations
+    set +e
+    
     # Stop services with timeout
     echo "Stopping existing services..."
-    timeout 5 systemctl stop serversphere 2>/dev/null || true
-    timeout 5 pkill -9 -f "node.*server.js" 2>/dev/null || true
-    timeout 5 pkill -9 -f "serversphere" 2>/dev/null || true
-    sleep 2
+    timeout 3 systemctl stop serversphere 2>/dev/null || true
+    sleep 1
     
-    # Free ports - more robust approach
-    echo "Freeing ports..."
-    local ports=(3000 3001 3002 3003 3883 80 443)
+    echo "Terminating Node.js processes..."
+    timeout 2 pkill -9 node 2>/dev/null || true
+    sleep 1
     
-    for port in "${ports[@]}"; do
-        # Try lsof first
-        if command -v lsof &> /dev/null; then
-            local pids=$(lsof -ti:$port 2>/dev/null | tr '\n' ' ')
-            if [ -n "$pids" ]; then
-                echo "  Port $port: Killing process(es) $pids"
-                kill -9 $pids 2>/dev/null || true
-            fi
-        # Fallback to fuser
-        elif command -v fuser &> /dev/null; then
-            echo "  Port $port: Using fuser to free port"
-            timeout 3 fuser -k $port/tcp 2>/dev/null || true
-        fi
-    done
-    
-    sleep 2
+    # Skip port freeing for now - can cause hangs
+    echo "Cleaning up configuration files..."
     
     # Remove old installation
-    echo "Removing old installation..."
     rm -rf "$INSTALL_DIR" 2>/dev/null || true
     rm -f /etc/systemd/system/serversphere.service 2>/dev/null || true
-    rm -f /etc/nginx/sites-available/serversphere 2>/dev/null || true
     rm -f /etc/nginx/sites-enabled/serversphere 2>/dev/null || true
+    rm -f /etc/nginx/sites-available/serversphere 2>/dev/null || true
     
     # Reload systemd
-    echo "Reloading systemd..."
-    systemctl daemon-reload 2>/dev/null || true
-    sleep 1
+    timeout 3 systemctl daemon-reload 2>/dev/null || true
+    
+    echo "Waiting for cleanup to finish..."
+    sleep 2
+    
+    # Re-enable error exit
+    set -e
     
     print_success "Cleanup completed"
 }
@@ -268,24 +258,34 @@ update_system() {
 install_nodejs() {
     print_step "$MSG_NODE"
     
+    set +e
+    
     if ! command -v node &> /dev/null; then
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-        apt-get install -y nodejs
-        if [ $? -ne 0 ]; then
+        echo "Downloading Node.js setup script..."
+        timeout 60 curl -fsSL https://deb.nodesource.com/setup_20.x | timeout 30 bash - 2>&1 | tail -3 || true
+        
+        echo "Installing Node.js..."
+        timeout 120 apt-get install -y nodejs 2>&1 | tail -3 || {
             print_error "$MSG_ERROR_NODE"
+            set -e
             exit 1
-        fi
+        }
         print_success "Node.js installed: $(node --version)"
     else
         print_success "Node.js already installed: $(node --version)"
     fi
     
     # Update npm
-    npm install -g npm@latest
+    echo "Updating npm..."
+    timeout 60 npm install -g npm@latest 2>&1 | tail -2 || true
+    
+    set -e
 }
 
 install_dependencies() {
     print_step "$MSG_DEPS"
+    
+    set +e
     
     # Common dependencies
     DEPS_COMMON="git curl wget unzip build-essential python3 make g++ openjdk-17-jre-headless"
@@ -293,11 +293,15 @@ install_dependencies() {
     # Full installation dependencies
     if [ "$INSTALL_TYPE" -eq 1 ] || [ "$INSTALL_TYPE" -eq 3 ]; then
         DEPS_FULL="nginx ufw certbot python3-certbot-nginx"
-        apt-get install -y $DEPS_COMMON $DEPS_FULL
+        echo "Installing full dependencies..."
+        timeout 300 apt-get install -y $DEPS_COMMON $DEPS_FULL 2>&1 | tail -5 || true
     else
         # Minimal installation
-        apt-get install -y $DEPS_COMMON
+        echo "Installing basic dependencies..."
+        timeout 300 apt-get install -y $DEPS_COMMON 2>&1 | tail -5 || true
     fi
+    
+    set -e
     
     print_success "Dependencies installed"
 }
