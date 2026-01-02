@@ -1,446 +1,420 @@
-#!/usr/bin/env node
+#!/bin/bash
 
-const { exec, spawn } = require('child_process');
-const fs = require('fs').promises;
-const path = require('path');
-const crypto = require('crypto');
-const readline = require('readline');
-const os = require('os');
+# ============================================
+# ServerSphere Auto-Installer - One-Click Install
+# GitHub: https://github.com/Luca-ssssssss/serversphere
+# ============================================
 
-// Colors für Konsolenausgabe
-const colors = {
-    reset: '\x1b[0m',
-    bright: '\x1b[1m',
-    dim: '\x1b[2m',
-    red: '\x1b[31m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    magenta: '\x1b[35m',
-    cyan: '\x1b[36m',
-    white: '\x1b[37m'
-};
+# Default Werte
+DEFAULT_PORT=$((3000 + RANDOM % 1000))
+INSTALL_DIR="/opt/serversphere"
+GITHUB_REPO="https://github.com/Luca-ssssssss/serversphere"
+GITHUB_RAW="https://raw.githubusercontent.com/Luca-ssssssss/serversphere/main"
 
-console.log(colors.bright + colors.cyan + `
-╔══════════════════════════════════════════════════════════════╗
-║                🚀 ServerSphere Debian Installer              ║
-║                  Automatische Installation                   ║
-╚══════════════════════════════════════════════════════════════╝
-` + colors.reset);
+# Farben
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+# ========== SPRACHE ==========
 
-const question = (query) => new Promise((resolve) => rl.question(query, resolve));
-
-// Hilfsfunktion für Shell-Commands
-function executeCommand(command, options = {}) {
-    return new Promise((resolve, reject) => {
-        const child = exec(command, options, (error, stdout, stderr) => {
-            if (error) {
-                reject({ error, stderr });
-            } else {
-                resolve({ stdout, stderr });
-            }
-        });
-        
-        if (options.logOutput !== false) {
-            child.stdout?.on('data', (data) => {
-                if (options.silent !== true) {
-                    process.stdout.write(colors.dim + data + colors.reset);
-                }
-            });
-            child.stderr?.on('data', (data) => {
-                if (options.silent !== true) {
-                    process.stderr.write(colors.yellow + data + colors.reset);
-                }
-            });
-        }
-    });
+show_language_menu() {
+    clear
+    echo -e "${CYAN}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                🚀 ServerSphere Auto-Installer                ║"
+    echo "║          GitHub: https://github.com/Luca-ssssssss/serversphere ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+    echo "Select language / Sprache wählen:"
+    echo "1) 🇺🇸 English"
+    echo "2) 🇩🇪 Deutsch"
+    echo ""
+    
+    while true; do
+        read -p "Your choice / Ihre Wahl [1-2]: " lang_choice
+        case $lang_choice in
+            1)
+                LANGUAGE="en"
+                load_english_texts
+                break
+                ;;
+            2)
+                LANGUAGE="de"
+                load_german_texts
+                break
+                ;;
+            *)
+                echo -e "${RED}Invalid choice / Ungültige Wahl${NC}"
+                ;;
+        esac
+    done
 }
 
-async function checkRoot() {
-    if (process.getuid && process.getuid() !== 0) {
-        console.log(colors.red + '❌ Bitte als root oder mit sudo ausführen!' + colors.reset);
-        process.exit(1);
-    }
-    return true;
+load_english_texts() {
+    # Messages
+    MSG_WELCOME="Welcome to ServerSphere Auto-Installer!"
+    MSG_DOMAIN="Enter your domain (or leave empty for IP access): "
+    MSG_PORT="Enter port (default $DEFAULT_PORT): "
+    MSG_SSL="Enable SSL? [y/n]: "
+    MSG_INSTALL_TYPE="Select installation type:"
+    MSG_OPTION1="1) Full installation (recommended)"
+    MSG_OPTION2="2) ServerSphere only (without Nginx/Firewall)"
+    MSG_OPTION3="3) Custom installation"
+    MSG_CHOICE="Enter your choice [1-3]: "
+    MSG_START="🚀 Starting installation..."
+    MSG_CLEANUP="🧹 Cleaning up previous installation..."
+    MSG_UPDATE="🔄 Updating system packages..."
+    MSG_NODE="📦 Installing Node.js..."
+    MSG_DEPS="📦 Installing dependencies..."
+    MSG_DOWNLOAD="⬇️  Downloading ServerSphere from GitHub..."
+    MSG_CONFIG="⚙️  Configuring ServerSphere..."
+    MSG_SERVICE="🔧 Setting up systemd service..."
+    MSG_NGINX="🌐 Configuring Nginx reverse proxy..."
+    MSG_FIREWALL="🔥 Configuring firewall..."
+    MSG_SSL_SETUP="🔐 Setting up SSL certificate..."
+    MSG_START_SERVICES="▶️  Starting services..."
+    MSG_COMPLETE="✅ Installation complete!"
+    MSG_ACCESS="🌐 Access your panel at:"
+    MSG_LOGIN="🔐 Admin login: admin / admin123"
+    MSG_WARNING="⚠️  CHANGE PASSWORD IMMEDIATELY AFTER LOGIN!"
+    MSG_MANAGE="🔧 Management commands:"
+    MSG_FILES="📁 Important files:"
+    MSG_ERROR_ROOT="❌ Please run as root: sudo bash $0"
+    MSG_ERROR_DOWNLOAD="❌ Failed to download from GitHub"
+    MSG_ERROR_NODE="❌ Node.js installation failed"
+    
+    # Yes/No
+    YES="y"
+    NO="n"
+    YES_NO="[y/n]"
 }
 
-async function detectOS() {
-    const platform = os.platform();
-    if (platform !== 'linux') {
-        console.log(colors.red + '❌ Dieses Script ist nur für Linux/Debian Systeme!' + colors.reset);
-        process.exit(1);
-    }
+load_german_texts() {
+    # Nachrichten
+    MSG_WELCOME="Willkommen zum ServerSphere Auto-Installer!"
+    MSG_DOMAIN="Gib deine Domain ein (oder leer für IP-Zugriff): "
+    MSG_PORT="Gib Port ein (Standard $DEFAULT_PORT): "
+    MSG_SSL="SSL aktivieren? [j/n]: "
+    MSG_INSTALL_TYPE="Wähle Installationsart:"
+    MSG_OPTION1="1) Vollständige Installation (empfohlen)"
+    MSG_OPTION2="2) Nur ServerSphere (ohne Nginx/Firewall)"
+    MSG_OPTION3="3) Benutzerdefinierte Installation"
+    MSG_CHOICE="Gib deine Wahl ein [1-3]: "
+    MSG_START="🚀 Starte Installation..."
+    MSG_CLEANUP="🧹 Lösche vorherige Installation..."
+    MSG_UPDATE="🔄 Aktualisiere Systempakete..."
+    MSG_NODE="📦 Installiere Node.js..."
+    MSG_DEPS="📦 Installiere Abhängigkeiten..."
+    MSG_DOWNLOAD="⬇️  Lade ServerSphere von GitHub herunter..."
+    MSG_CONFIG="⚙️  Konfiguriere ServerSphere..."
+    MSG_SERVICE="🔧 Richte Systemd Service ein..."
+    MSG_NGINX="🌐 Konfiguriere Nginx Reverse Proxy..."
+    MSG_FIREWALL="🔥 Konfiguriere Firewall..."
+    MSG_SSL_SETUP="🔐 Richte SSL Zertifikat ein..."
+    MSG_START_SERVICES="▶️  Starte Dienste..."
+    MSG_COMPLETE="✅ Installation abgeschlossen!"
+    MSG_ACCESS="🌐 Zugriff auf das Panel:"
+    MSG_LOGIN="🔐 Admin Login: admin / admin123"
+    MSG_WARNING="⚠️  PASSWORT SOFORT NACH DEM LOGIN ÄNDERN!"
+    MSG_MANAGE="🔧 Verwaltungsbefehle:"
+    MSG_FILES="📁 Wichtige Dateien:"
+    MSG_ERROR_ROOT="❌ Bitte als root ausführen: sudo bash $0"
+    MSG_ERROR_DOWNLOAD="❌ Download von GitHub fehlgeschlagen"
+    MSG_ERROR_NODE="❌ Node.js Installation fehlgeschlagen"
     
-    try {
-        const { stdout } = await executeCommand('cat /etc/os-release', { silent: true });
-        if (stdout.includes('Debian') || stdout.includes('Ubuntu')) {
-            return 'debian';
-        } else if (stdout.includes('CentOS') || stdout.includes('Red Hat')) {
-            return 'rhel';
-        } else {
-            return 'unknown';
-        }
-    } catch {
-        return 'unknown';
-    }
+    # Ja/Nein
+    YES="j"
+    NO="n"
+    YES_NO="[j/n]"
 }
 
-async function updateSystem() {
-    console.log(colors.blue + '\n📦 System aktualisieren...' + colors.reset);
-    try {
-        await executeCommand('apt-get update -y');
-        await executeCommand('apt-get upgrade -y');
-        console.log(colors.green + '✅ System aktualisiert' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.yellow + '⚠️  Systemupdate fehlgeschlagen, aber fortfahren...' + colors.reset);
-        return false;
-    }
+# ========== HILFSFUNKTIONEN ==========
+
+print_header() {
+    clear
+    echo -e "${CYAN}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                🚀 ServerSphere Auto-Installer                ║"
+    echo "║          GitHub: https://github.com/Luca-ssssssss/serversphere ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
 }
 
-async function installNodeJS() {
-    console.log(colors.blue + '\n📦 Node.js installieren...' + colors.reset);
-    
-    try {
-        // Überprüfen ob Node.js schon installiert ist
-        const { stdout: nodeVersion } = await executeCommand('node --version', { silent: true });
-        console.log(colors.green + `✅ Node.js bereits installiert: ${nodeVersion.trim()}` + colors.reset);
-        return true;
-    } catch {
-        // Node.js installieren
-        try {
-            console.log(colors.cyan + '📥 NodeSource Repository hinzufügen...' + colors.reset);
-            await executeCommand('curl -fsSL https://deb.nodesource.com/setup_20.x | bash -');
-            
-            console.log(colors.cyan + '📦 Node.js installieren...' + colors.reset);
-            await executeCommand('apt-get install -y nodejs');
-            
-            const { stdout: nodeVersion } = await executeCommand('node --version', { silent: true });
-            const { stdout: npmVersion } = await executeCommand('npm --version', { silent: true });
-            
-            console.log(colors.green + `✅ Node.js installiert: ${nodeVersion.trim()}` + colors.reset);
-            console.log(colors.green + `✅ npm installiert: ${npmVersion.trim()}` + colors.reset);
-            return true;
-        } catch (error) {
-            console.log(colors.red + '❌ Node.js Installation fehlgeschlagen!' + colors.reset);
-            console.log(colors.yellow + '📋 Alternative: Node.js manuell installieren...' + colors.reset);
-            
-            try {
-                await executeCommand('apt-get install -y curl');
-                await executeCommand('curl -sL https://deb.nodesource.com/setup_16.x | bash -');
-                await executeCommand('apt-get install -y nodejs');
-                console.log(colors.green + '✅ Node.js manuell installiert' + colors.reset);
-                return true;
-            } catch (error2) {
-                console.log(colors.red + '❌ Kritischer Fehler: Node.js konnte nicht installiert werden' + colors.reset);
-                return false;
-            }
-        }
-    }
+print_step() {
+    echo -e "\n${BLUE}📦 $1${NC}"
 }
 
-async function installRequiredPackages() {
-    console.log(colors.blue + '\n📦 Benötigte Pakete installieren...' + colors.reset);
-    
-    const packages = [
-        'git', 'build-essential', 'python3', 'make', 'g++',
-        'openjdk-17-jre-headless', 'nginx', 'ufw', 'certbot',
-        'python3-certbot-nginx'
-    ];
-    
-    try {
-        await executeCommand(`apt-get install -y ${packages.join(' ')}`);
-        console.log(colors.green + '✅ Alle Pakete installiert' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.yellow + '⚠️  Einige Pakete konnten nicht installiert werden' + colors.reset);
-        return false;
-    }
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
 }
 
-async function createProjectStructure() {
-    console.log(colors.blue + '\n📁 Projektstruktur erstellen...' + colors.reset);
-    
-    const baseDir = '/opt/serversphere';
-    const subDirs = [
-        'public/assets/icons',
-        'public/assets/fonts',
-        'src/routes',
-        'src/middleware',
-        'src/controllers',
-        'src/models',
-        'src/utils',
-        'src/config',
-        'uploads',
-        'servers',
-        'backups',
-        'logs',
-        'keys',
-        'scripts'
-    ];
-    
-    try {
-        // Hauptverzeichnis
-        await fs.mkdir(baseDir, { recursive: true });
-        
-        // Unterverzeichnisse
-        for (const dir of subDirs) {
-            await fs.mkdir(path.join(baseDir, dir), { recursive: true });
-            console.log(colors.dim + `   📁 ${dir}` + colors.reset);
-        }
-        
-        console.log(colors.green + `✅ Projektverzeichnis erstellt: ${baseDir}` + colors.reset);
-        return baseDir;
-    } catch (error) {
-        console.log(colors.red + `❌ Fehler beim Erstellen der Verzeichnisse: ${error.message}` + colors.reset);
-        return null;
-    }
+print_error() {
+    echo -e "${RED}❌ $1${NC}"
 }
 
-async function copyProjectFiles(baseDir) {
-    console.log(colors.blue + '\n📄 Projektdateien kopieren...' + colors.reset);
-    
-    const currentDir = process.cwd();
-    const filesToCopy = [
-        'package.json',
-        'server.js',
-        '.env.template',
-        'keygen.js',
-        'setup.js'
-    ];
-    
-    try {
-        for (const file of filesToCopy) {
-            const sourcePath = path.join(currentDir, file);
-            const destPath = path.join(baseDir, file);
-            
-            try {
-                await fs.access(sourcePath);
-                await fs.copyFile(sourcePath, destPath);
-                console.log(colors.dim + `   📄 ${file}` + colors.reset);
-            } catch {
-                console.log(colors.yellow + `   ⚠️  ${file} nicht gefunden, überspringe...` + colors.reset);
-            }
-        }
-        
-        // Erstelle minimale Dateien falls nicht vorhanden
-        await createMissingFiles(baseDir);
-        
-        console.log(colors.green + '✅ Projektdateien kopiert' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.red + `❌ Fehler beim Kopieren: ${error.message}` + colors.reset);
-        return false;
-    }
+print_info() {
+    echo -e "${CYAN}ℹ️  $1${NC}"
 }
 
-async function createMissingFiles(baseDir) {
-    // Erstelle package.json falls nicht existiert
-    const packageJsonPath = path.join(baseDir, 'package.json');
-    try {
-        await fs.access(packageJsonPath);
-    } catch {
-        const packageJson = {
-            name: "serversphere",
-            version: "1.0.0",
-            description: "Minecraft Server Management Panel",
-            main: "server.js",
-            scripts: {
-                start: "node server.js",
-                dev: "nodemon server.js",
-                setup: "node setup.js",
-                keygen: "node keygen.js"
-            },
-            dependencies: {
-                "express": "^4.18.2",
-                "socket.io": "^4.5.4",
-                "bcryptjs": "^2.4.3",
-                "jsonwebtoken": "^9.0.0",
-                "multer": "^1.4.5-lts.1",
-                "archiver": "^5.3.1",
-                "unzipper": "^0.10.14",
-                "axios": "^1.3.4",
-                "dotenv": "^16.0.3",
-                "cors": "^2.8.5",
-                "helmet": "^7.0.0",
-                "express-rate-limit": "^6.7.0",
-                "compression": "^1.7.4",
-                "express-fileupload": "^1.4.0",
-                "express-validator": "^6.14.2"
-            },
-            devDependencies: {
-                "nodemon": "^2.0.22"
-            }
-        };
-        await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2));
-    }
+ask_yes_no() {
+    local prompt="$1"
     
-    // Erstelle .env.template
-    const envTemplate = `# ServerSphere Configuration
+    while true; do
+        read -p "$prompt $YES_NO: " yn
+        case $yn in
+            [$YES]*) return 0 ;;
+            [$NO]*) return 1 ;;
+            *) echo "Please enter $YES or $NO / Bitte $YES oder $NO eingeben" ;;
+        esac
+    done
+}
+
+check_root() {
+    if [ "$EUID" -ne 0 ]; then 
+        print_error "$MSG_ERROR_ROOT"
+        exit 1
+    fi
+}
+
+# ========== INSTALLATIONS-FUNKTIONEN ==========
+
+cleanup_previous() {
+    print_step "$MSG_CLEANUP"
+    
+    # Stop services
+    systemctl stop serversphere 2>/dev/null || true
+    pkill -f "node.*server.js" 2>/dev/null || true
+    pkill -f "serversphere" 2>/dev/null || true
+    
+    # Free ports
+    for port in 3000 3001 3002 3003 3883 80 443; do
+        fuser -k $port/tcp 2>/dev/null || true
+    done
+    
+    # Remove old installation
+    rm -rf "$INSTALL_DIR" 2>/dev/null || true
+    rm -f /etc/systemd/system/serversphere.service 2>/dev/null || true
+    rm -f /etc/nginx/sites-available/serversphere 2>/dev/null || true
+    rm -f /etc/nginx/sites-enabled/serversphere 2>/dev/null || true
+    
+    # Reload systemd
+    systemctl daemon-reload 2>/dev/null || true
+    
+    print_success "Cleanup completed"
+}
+
+update_system() {
+    print_step "$MSG_UPDATE"
+    apt-get update -y && apt-get upgrade -y
+    print_success "System updated"
+}
+
+install_nodejs() {
+    print_step "$MSG_NODE"
+    
+    if ! command -v node &> /dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        apt-get install -y nodejs
+        if [ $? -ne 0 ]; then
+            print_error "$MSG_ERROR_NODE"
+            exit 1
+        fi
+        print_success "Node.js installed: $(node --version)"
+    else
+        print_success "Node.js already installed: $(node --version)"
+    fi
+    
+    # Update npm
+    npm install -g npm@latest
+}
+
+install_dependencies() {
+    print_step "$MSG_DEPS"
+    
+    # Common dependencies
+    DEPS_COMMON="git curl wget unzip build-essential python3 make g++ openjdk-17-jre-headless"
+    
+    # Full installation dependencies
+    if [ "$INSTALL_TYPE" -eq 1 ] || [ "$INSTALL_TYPE" -eq 3 ]; then
+        DEPS_FULL="nginx ufw certbot python3-certbot-nginx"
+        apt-get install -y $DEPS_COMMON $DEPS_FULL
+    else
+        # Minimal installation
+        apt-get install -y $DEPS_COMMON
+    fi
+    
+    print_success "Dependencies installed"
+}
+
+download_all_files() {
+    print_step "$MSG_DOWNLOAD"
+    
+    # Create installation directory
+    mkdir -p "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
+    
+    echo "Downloading ALL ServerSphere files from GitHub..."
+    
+    # Method 1: Try to clone with git first
+    if command -v git &> /dev/null; then
+        echo "Using git clone..."
+        git clone --depth=1 "$GITHUB_REPO.git" . 2>/dev/null && return 0
+    fi
+    
+    # Method 2: Download ZIP archive
+    echo "Using wget to download ZIP..."
+    wget -q "$GITHUB_REPO/archive/main.zip" -O /tmp/serversphere.zip
+    if [ $? -eq 0 ]; then
+        unzip -q /tmp/serversphere.zip -d /tmp/
+        cp -r /tmp/serversphere-main/* "$INSTALL_DIR"/
+        cp -r /tmp/serversphere-main/.* "$INSTALL_DIR"/ 2>/dev/null || true
+        rm -f /tmp/serversphere.zip
+        rm -rf /tmp/serversphere-main
+        return 0
+    fi
+    
+    # Method 3: Download essential files individually
+    echo "Downloading essential files individually..."
+    
+    # List of all essential files
+    ESSENTIAL_FILES=(
+        "package.json"
+        "package-lock.json"
+        "server.js"
+        "setup.js"
+        "keygen.js"
+        ".env.template"
+        "README.md"
+        "start.bat"
+        "public/"
+    )
+    
+    # Download each file
+    for item in "${ESSENTIAL_FILES[@]}"; do
+        if [[ "$item" == */ ]]; then
+            # Directory - create it
+            mkdir -p "${item%/}"
+        else
+            # File - download it
+            echo "Downloading: $item"
+            wget -q "$GITHUB_RAW/$item" -O "$item" 2>/dev/null || echo "Warning: Could not download $item"
+        fi
+    done
+    
+    # Create src directory structure
+    mkdir -p src
+    
+    # Check if package.json exists
+    if [ ! -f "package.json" ]; then
+        print_error "$MSG_ERROR_DOWNLOAD"
+        exit 1
+    fi
+    
+    print_success "Download completed"
+}
+
+setup_serversphere() {
+    print_step "$MSG_CONFIG"
+    
+    cd "$INSTALL_DIR"
+    
+    # Install npm dependencies
+    echo "Installing Node.js dependencies..."
+    npm install --production --no-audit --no-fund
+    
+    # Generate security keys
+    echo "Generating security keys..."
+    if [ -f "keygen.js" ]; then
+        node keygen.js
+    else
+        # Fallback key generation
+        cat > .env << EOF
+JWT_SECRET=$(openssl rand -hex 32)
+SESSION_SECRET=$(openssl rand -hex 32)
+ENCRYPTION_KEY=$(openssl rand -hex 32)
+CSRF_SECRET=$(openssl rand -hex 32)
+PORT=$PORT
+HOST=0.0.0.0
 NODE_ENV=production
-PORT=3000
+ALLOW_EXTERNAL_ACCESS=true
+EOF
+    fi
+    
+    # Update .env with our settings
+    if [ -f ".env" ]; then
+        sed -i "s/PORT=.*/PORT=$PORT/" .env
+        sed -i 's/HOST=.*/HOST=0.0.0.0/' .env
+        sed -i 's/NODE_ENV=.*/NODE_ENV=production/' .env
+        if ! grep -q "ALLOW_EXTERNAL_ACCESS" .env; then
+            echo "ALLOW_EXTERNAL_ACCESS=true" >> .env
+        fi
+    else
+        cat > .env << EOF
+PORT=$PORT
 HOST=0.0.0.0
-JWT_SECRET=your-jwt-secret-key-change-immediately
-SESSION_SECRET=your-session-secret-change-immediately
-ENCRYPTION_KEY=your-encryption-key-32-chars-minimum
-CSRF_SECRET=your-csrf-secret-key
-MONGODB_URI=mongodb://localhost:27017/serversphere
-API_RATE_LIMIT_WINDOW_MS=900000
-API_RATE_LIMIT_MAX=100
-SESSION_COOKIE_SECURE=false
-CORS_ORIGIN=http://localhost:3000
-BACKUP_RETENTION_DAYS=30
-MAX_BACKUPS_PER_SERVER=10
-LOG_LEVEL=info
-LOG_TO_FILE=true
-LOG_DIR=./logs
-DEFAULT_SERVER_RAM=4096
-MAX_FILE_UPLOAD_SIZE=104857600`;
+NODE_ENV=production
+ALLOW_EXTERNAL_ACCESS=true
+JWT_SECRET=$(openssl rand -hex 32)
+SESSION_SECRET=$(openssl rand -hex 32)
+ENCRYPTION_KEY=$(openssl rand -hex 32)
+CSRF_SECRET=$(openssl rand -hex 32)
+EOF
+    fi
     
-    await fs.writeFile(path.join(baseDir, '.env.template'), envTemplate);
+    # Create necessary directories
+    mkdir -p servers backups uploads logs keys public
+    
+    print_success "ServerSphere configured"
 }
 
-async function installDependencies(baseDir) {
-    console.log(colors.blue + '\n📦 Node.js Abhängigkeiten installieren...' + colors.reset);
+setup_systemd_service() {
+    print_step "$MSG_SERVICE"
     
-    try {
-        process.chdir(baseDir);
-        await executeCommand('npm install --production');
-        console.log(colors.green + '✅ Abhängigkeiten installiert' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.red + '❌ Fehler bei npm install' + colors.reset);
-        return false;
-    }
-}
-
-async function generateKeys(baseDir) {
-    console.log(colors.blue + '\n🔐 Sicherheitsschlüssel generieren...' + colors.reset);
-    
-    try {
-        process.chdir(baseDir);
-        
-        // Erstelle keygen.js falls nicht existiert
-        const keygenPath = path.join(baseDir, 'keygen.js');
-        try {
-            await fs.access(keygenPath);
-        } catch {
-            const keygenContent = `const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
-
-console.log('🔐 Generiere Sicherheitsschlüssel...');
-
-const keys = {
-  JWT_SECRET: crypto.randomBytes(64).toString('hex'),
-  SESSION_SECRET: crypto.randomBytes(32).toString('hex'),
-  ENCRYPTION_KEY: crypto.randomBytes(32).toString('hex'),
-  CSRF_SECRET: crypto.randomBytes(32).toString('hex')
-};
-
-console.log('✅ Schlüssel generiert');
-
-// Erstelle .env Datei
-const envContent = \`NODE_ENV=production
-PORT=3000
-HOST=0.0.0.0
-\${Object.entries(keys).map(([k, v]) => \`\${k}=\${v}\`).join('\\n')}
-MONGODB_URI=mongodb://localhost:27017/serversphere
-SESSION_COOKIE_SECURE=false
-CORS_ORIGIN=http://localhost:3000\`;
-
-fs.writeFileSync(path.join(__dirname, '.env'), envContent);
-console.log('✅ .env Datei erstellt');`;
-            
-            await fs.writeFile(keygenPath, keygenContent);
-        }
-        
-        await executeCommand('node keygen.js');
-        console.log(colors.green + '✅ Schlüssel generiert und .env erstellt' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.red + '❌ Fehler bei der Key-Generierung' + colors.reset);
-        return false;
-    }
-}
-
-async function createSystemdService(baseDir) {
-    console.log(colors.blue + '\n⚙️  Systemd Service erstellen...' + colors.reset);
-    
-    const serviceContent = `[Unit]
+    cat > /etc/systemd/system/serversphere.service << EOF
+[Unit]
 Description=ServerSphere Minecraft Panel
 After=network.target
-Wants=network.target
 
 [Service]
 Type=simple
 User=root
-Group=root
-WorkingDirectory=${baseDir}
+WorkingDirectory=$INSTALL_DIR
 Environment=NODE_ENV=production
-Environment=PATH=/usr/bin:/usr/local/bin
-ExecStart=/usr/bin/node ${baseDir}/server.js
+ExecStart=/usr/bin/node $INSTALL_DIR/server.js
 Restart=always
 RestartSec=10
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=serversphere
-
-# Sicherheit
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ReadWritePaths=${baseDir}/servers ${baseDir}/backups ${baseDir}/uploads ${baseDir}/logs
 
 [Install]
-WantedBy=multi-user.target`;
+WantedBy=multi-user.target
+EOF
     
-    try {
-        await fs.writeFile('/etc/systemd/system/serversphere.service', serviceContent);
-        await executeCommand('systemctl daemon-reload');
-        console.log(colors.green + '✅ Systemd Service erstellt' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.red + `❌ Fehler beim Erstellen des Service: ${error.message}` + colors.reset);
-        return false;
-    }
+    systemctl daemon-reload
+    print_success "Systemd service created"
 }
 
-async function configureFirewall() {
-    console.log(colors.blue + '\n🔥 Firewall konfigurieren...' + colors.reset);
+setup_nginx() {
+    print_step "$MSG_NGINX"
     
-    try {
-        await executeCommand('ufw --force enable');
-        await executeCommand('ufw default deny incoming');
-        await executeCommand('ufw default allow outgoing');
-        await executeCommand('ufw allow 22/tcp');
-        await executeCommand('ufw allow 3000/tcp');
-        await executeCommand('ufw allow 80/tcp');
-        await executeCommand('ufw allow 443/tcp');
-        await executeCommand('ufw allow 25565:25575/tcp');
-        console.log(colors.green + '✅ Firewall konfiguriert' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.yellow + '⚠️  Firewall konnte nicht konfiguriert werden' + colors.reset);
-        return false;
-    }
-}
-
-async function configureNginx(domain = null) {
-    console.log(colors.blue + '\n🌐 Nginx konfigurieren...' + colors.reset);
+    # Remove default site
+    rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
     
-    const nginxConfig = domain ? 
-`server {
+    # Create nginx config
+    cat > /etc/nginx/sites-available/serversphere << EOF
+server {
     listen 80;
-    server_name ${domain};
+    server_name ${DOMAIN:-_} $([ -n "$DOMAIN" ] && echo "www.$DOMAIN");
+    
+    # Allow external access
+    add_header Access-Control-Allow-Origin *;
+    add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS, PUT, DELETE';
+    add_header Access-Control-Allow-Headers 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
     
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:$PORT;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -448,11 +422,10 @@ async function configureNginx(domain = null) {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
     }
     
     location /socket.io/ {
-        proxy_pass http://localhost:3000/socket.io/;
+        proxy_pass http://localhost:$PORT/socket.io/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "Upgrade";
@@ -460,275 +433,239 @@ async function configureNginx(domain = null) {
     }
     
     client_max_body_size 100M;
-}` 
-: 
-`server {
-    listen 80;
-    server_name _;
+}
+EOF
     
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-    }
+    # Enable site
+    ln -sf /etc/nginx/sites-available/serversphere /etc/nginx/sites-enabled/
     
-    location /socket.io/ {
-        proxy_pass http://localhost:3000/socket.io/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host \$host;
-    }
+    # Test and restart nginx
+    nginx -t && systemctl restart nginx
     
-    client_max_body_size 100M;
-}`;
-    
-    try {
-        await fs.writeFile('/etc/nginx/sites-available/serversphere', nginxConfig);
-        
-        // Symlink erstellen
-        try {
-            await executeCommand('ln -sf /etc/nginx/sites-available/serversphere /etc/nginx/sites-enabled/');
-        } catch {
-            // Falls schon existiert
-        }
-        
-        // Standard Nginx Site deaktivieren
-        try {
-            await executeCommand('rm -f /etc/nginx/sites-enabled/default');
-        } catch {
-            // Ignorieren falls nicht existiert
-        }
-        
-        // Nginx testen und neustarten
-        await executeCommand('nginx -t');
-        await executeCommand('systemctl restart nginx');
-        
-        console.log(colors.green + '✅ Nginx konfiguriert' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.red + `❌ Nginx Konfiguration fehlgeschlagen: ${error.message}` + colors.reset);
-        return false;
-    }
+    print_success "Nginx configured"
 }
 
-async function setupSSL(domain) {
-    if (!domain) {
-        console.log(colors.yellow + '\n⚠️  Keine Domain angegeben, überspringe SSL Setup' + colors.reset);
-        return false;
-    }
+setup_firewall() {
+    print_step "$MSG_FIREWALL"
     
-    console.log(colors.blue + `\n🔒 SSL Zertifikat für ${domain} einrichten...` + colors.reset);
+    # Enable firewall if not enabled
+    if ! ufw status | grep -q "Status: active"; then
+        ufw --force enable
+    fi
     
-    try {
-        await executeCommand(`certbot --nginx -d ${domain} --non-interactive --agree-tos --email admin@${domain}`);
-        console.log(colors.green + '✅ SSL Zertifikat eingerichtet' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.yellow + '⚠️  SSL Setup fehlgeschlagen, aber fortfahren...' + colors.reset);
-        return false;
-    }
+    # Set defaults
+    ufw default deny incoming
+    ufw default allow outgoing
+    
+    # Open ports
+    ufw allow 22/tcp comment 'SSH'
+    ufw allow 80/tcp comment 'HTTP'
+    ufw allow 443/tcp comment 'HTTPS'
+    ufw allow $PORT/tcp comment "ServerSphere Panel"
+    ufw allow 25565:25575/tcp comment 'Minecraft Ports'
+    
+    # Reload firewall
+    ufw --force reload
+    
+    print_success "Firewall configured"
 }
 
-async function startServices() {
-    console.log(colors.blue + '\n🚀 Dienste starten...' + colors.reset);
-    
-    try {
-        await executeCommand('systemctl start serversphere');
-        await executeCommand('systemctl enable serversphere');
-        await executeCommand('systemctl restart nginx');
+setup_ssl() {
+    if [ "$SSL" = true ] && [ -n "$DOMAIN" ]; then
+        print_step "$MSG_SSL_SETUP"
         
-        // Warten und Status prüfen
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const { stdout: status } = await executeCommand('systemctl status serversphere --no-pager', { silent: true });
-        
-        if (status.includes('active (running)')) {
-            console.log(colors.green + '✅ ServerSphere Service läuft' + colors.reset);
-            return true;
-        } else {
-            console.log(colors.yellow + '⚠️  Service Status unklar' + colors.reset);
-            return false;
-        }
-    } catch (error) {
-        console.log(colors.red + '❌ Fehler beim Starten der Dienste' + colors.reset);
-        return false;
-    }
+        # Setup SSL certificate
+        if certbot --nginx -d "$DOMAIN" -d "www.$DOMAIN" \
+                   --non-interactive --agree-tos \
+                   --email "admin@$DOMAIN" \
+                   --redirect; then
+            print_success "SSL certificate installed"
+        else
+            print_error "SSL setup failed - continuing without SSL"
+        fi
+    fi
 }
 
-async function createAdminUser(baseDir) {
-    console.log(colors.blue + '\n👤 Admin Benutzer erstellen...' + colors.reset);
+start_services() {
+    print_step "$MSG_START_SERVICES"
     
-    try {
-        const adminData = {
-            id: crypto.randomUUID(),
-            username: 'admin',
-            email: 'admin@localhost',
-            role: 'admin',
-            verified: true,
-            createdAt: new Date().toISOString()
-        };
-        
-        await fs.writeFile(
-            path.join(baseDir, 'users.json'),
-            JSON.stringify([adminData], null, 2)
-        );
-        
-        console.log(colors.green + '✅ Admin Benutzer erstellt' + colors.reset);
-        console.log(colors.yellow + '📋 Standard Login: admin / admin123' + colors.reset);
-        console.log(colors.red + '⚠️  Bitte Passwort nach erstem Login ändern!' + colors.reset);
-        return true;
-    } catch (error) {
-        console.log(colors.yellow + '⚠️  Admin Benutzer konnte nicht erstellt werden' + colors.reset);
-        return false;
-    }
+    # Start and enable ServerSphere
+    systemctl start serversphere
+    systemctl enable serversphere
+    
+    # Wait for service to start
+    sleep 5
+    
+    # Check status
+    if systemctl is-active --quiet serversphere; then
+        print_success "ServerSphere service is running"
+    else
+        print_error "Service failed to start. Checking logs..."
+        journalctl -u serversphere --no-pager -n 20
+    fi
 }
 
-async function showSummary(baseDir, domain, useSSL) {
-    console.log(colors.bright + colors.cyan + '\n' + '='.repeat(60));
-    console.log('🎉 INSTALLATION ABGESCHLOSSEN!');
-    console.log('='.repeat(60) + colors.reset);
+show_summary() {
+    local local_ip=$(hostname -I | awk '{print $1}')
+    local external_ip=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || echo "UNKNOWN")
     
-    console.log(colors.green + '\n✅ ServerSphere wurde erfolgreich installiert!' + colors.reset);
+    echo -e "\n${GREEN}================================================"
+    echo "$MSG_COMPLETE"
+    echo "================================================${NC}\n"
     
-    console.log(colors.blue + '\n📋 ZUSAMMENFASSUNG:' + colors.reset);
-    console.log(colors.white + `📍 Installationsverzeichnis: ${baseDir}` + colors.reset);
-    console.log(colors.white + `👤 Admin Login: admin / admin123` + colors.reset);
-    console.log(colors.red + `   ⚠️  SOFORT ÄNDERN NACH DEM LOGIN!` + colors.reset);
+    echo -e "${CYAN}$MSG_ACCESS${NC}"
     
-    if (domain && useSSL) {
-        console.log(colors.white + `🌐 Zugriff: https://${domain}` + colors.reset);
-        console.log(colors.white + `🔒 SSL: Aktiviert (Let's Encrypt)` + colors.reset);
-    } else if (domain) {
-        console.log(colors.white + `🌐 Zugriff: http://${domain}` + colors.reset);
-        console.log(colors.white + `🔓 SSL: Nicht aktiviert` + colors.reset);
-    } else {
-        console.log(colors.white + `🌐 Zugriff: http://SERVER_IP:3000` + colors.reset);
-        console.log(colors.white + `🌐 Alternativ: http://localhost:3000` + colors.reset);
-    }
+    if [ -n "$DOMAIN" ] && [ "$SSL" = true ]; then
+        echo -e "   ${GREEN}https://$DOMAIN${NC}"
+        echo -e "   🔒 SSL: Enabled"
+    elif [ -n "$DOMAIN" ]; then
+        echo -e "   ${BLUE}http://$DOMAIN${NC}"
+        echo -e "   🔓 SSL: Not enabled"
+    else
+        echo -e "   ${BLUE}http://$local_ip${NC} (via Nginx)"
+        echo -e "   ${BLUE}http://$local_ip:$PORT${NC} (direct)"
+        
+        if [ "$external_ip" != "UNKNOWN" ]; then
+            echo -e "\n   ${CYAN}External Access:${NC}"
+            echo -e "   ${GREEN}http://$external_ip${NC}"
+            echo -e "   ${GREEN}http://$external_ip:$PORT${NC}"
+            echo -e "\n   ${YELLOW}⚠️  For external access, forward in your router:${NC}"
+            echo -e "   • Port 80 → $local_ip:80"
+            echo -e "   • Port $PORT → $local_ip:$PORT"
+        fi
+    fi
     
-    console.log(colors.blue + '\n🔧 VERWALTUNGSBEFEHLE:' + colors.reset);
-    console.log(colors.white + `📊 Status prüfen: systemctl status serversphere` + colors.reset);
-    console.log(colors.white + `🔁 Neustarten: systemctl restart serversphere` + colors.reset);
-    console.log(colors.white + `⏹️  Stoppen: systemctl stop serversphere` + colors.reset);
-    console.log(colors.white + `▶️  Starten: systemctl start serversphere` + colors.reset);
-    console.log(colors.white + `📝 Logs anzeigen: journalctl -u serversphere -f` + colors.reset);
+    echo -e "\n${CYAN}$MSG_LOGIN${NC}"
+    echo -e "${RED}$MSG_WARNING${NC}"
     
-    console.log(colors.blue + '\n📁 WICHTIGE DATEIEN:' + colors.reset);
-    console.log(colors.white + `🔐 Konfiguration: ${baseDir}/.env` + colors.reset);
-    console.log(colors.white + `📋 Service Config: /etc/systemd/system/serversphere.service` + colors.reset);
-    console.log(colors.white + `🌐 Nginx Config: /etc/nginx/sites-available/serversphere` + colors.reset);
+    echo -e "\n${CYAN}$MSG_MANAGE${NC}"
+    echo "   systemctl status serversphere"
+    echo "   systemctl restart serversphere"
+    echo "   journalctl -u serversphere -f"
     
-    console.log(colors.blue + '\n🚀 NÄCHSTE SCHRITTE:' + colors.reset);
-    console.log(colors.white + `1. Zum Panel navigieren (siehe oben)` + colors.reset);
-    console.log(colors.white + `2. Mit admin / admin123 einloggen` + colors.reset);
-    console.log(colors.white + `3. SOFORT Passwort ändern!` + colors.reset);
-    console.log(colors.white + `4. Ersten Minecraft Server erstellen` + colors.reset);
+    echo -e "\n${CYAN}$MSG_FILES${NC}"
+    echo "   $INSTALL_DIR/.env"
+    echo "   /etc/systemd/system/serversphere.service"
+    echo "   /etc/nginx/sites-available/serversphere"
     
-    console.log(colors.yellow + '\n⚠️  SICHERHEITSHINWEISE:' + colors.reset);
-    console.log(colors.white + `• Ändere das Standard-Passwort SOFORT!` + colors.reset);
-    console.log(colors.white + `• Konfiguriere regelmäßige Backups` + colors.reset);
-    console.log(colors.white + `• Halte das System aktuell (apt update && apt upgrade)` + colors.reset);
-    console.log(colors.white + `• Überwache die Logs regelmäßig` + colors.reset);
-    
-    console.log(colors.bright + colors.green + '\n✅ ServerSphere ist jetzt bereit für den Einsatz!' + colors.reset);
+    echo -e "\n${GREEN}✅ ServerSphere is ready!${NC}"
 }
 
-async function main() {
-    try {
-        // 1. Root-Rechte prüfen
-        await checkRoot();
+# ========== HAUPT-FUNKTION ==========
+
+main() {
+    # Show language menu first
+    show_language_menu
+    
+    # Show header with selected language
+    print_header
+    echo -e "${CYAN}$MSG_WELCOME${NC}\n"
+    
+    # Check root
+    check_root
+    
+    # Get configuration
+    read -p "$MSG_DOMAIN" DOMAIN
+    
+    read -p "$MSG_PORT" input_port
+    PORT=${input_port:-$DEFAULT_PORT}
+    
+    if [ -n "$DOMAIN" ]; then
+        if ask_yes_no "$MSG_SSL"; then
+            SSL=true
+        else
+            SSL=false
+        fi
+    fi
+    
+    # Installation type
+    echo -e "\n${CYAN}$MSG_INSTALL_TYPE${NC}"
+    echo "$MSG_OPTION1"
+    echo "$MSG_OPTION2"
+    echo "$MSG_OPTION3"
+    
+    while true; do
+        read -p "$MSG_CHOICE" INSTALL_TYPE
+        case $INSTALL_TYPE in
+            1|2|3) break ;;
+            *) echo "Invalid choice. Please enter 1, 2 or 3." ;;
+        esac
+    done
+    
+    # Custom installation options
+    if [ "$INSTALL_TYPE" -eq 3 ]; then
+        CUSTOM_NGINX=false
+        CUSTOM_FIREWALL=false
+        CUSTOM_SSL=false
         
-        // 2. OS prüfen
-        const osType = await detectOS();
-        console.log(colors.green + `✅ Betriebssystem erkannt: ${osType}` + colors.reset);
-        
-        // 3. Installationstyp abfragen
-        console.log(colors.cyan + '\n⚙️  Installationstyp wählen:' + colors.reset);
-        console.log('1) Vollständige Installation (empfohlen)');
-        console.log('2) Minimale Installation');
-        console.log('3) Nur Projektdateien');
-        
-        const installType = await question('\nWähle (1-3): ') || '1';
-        
-        // 4. Domain abfragen
-        let domain = null;
-        let useSSL = false;
-        
-        if (installType === '1') {
-            domain = await question('Domain (leer lassen für IP): ');
-            if (domain) {
-                const sslAnswer = await question('SSL Zertifikat einrichten? (j/n): ');
-                useSSL = sslAnswer.toLowerCase() === 'j';
-            }
-        }
-        
-        // 5. Installation starten
-        console.log(colors.bright + colors.blue + '\n🚀 Starte Installation...' + colors.reset);
-        
-        // Vollständige Installation
-        if (installType === '1') {
-            await updateSystem();
-            await installNodeJS();
-            await installRequiredPackages();
-        }
-        
-        // Projektverzeichnis erstellen
-        const baseDir = await createProjectStructure();
-        if (!baseDir) {
-            throw new Error('Konnte Projektverzeichnis nicht erstellen');
-        }
-        
-        // Dateien kopieren
-        await copyProjectFiles(baseDir);
-        
-        // Abhängigkeiten installieren
-        await installDependencies(baseDir);
-        
-        // Schlüssel generieren
-        await generateKeys(baseDir);
-        
-        // Admin Benutzer
-        await createAdminUser(baseDir);
-        
-        // Vollständige Installation fortsetzen
-        if (installType === '1') {
-            await createSystemdService(baseDir);
-            await configureFirewall();
-            await configureNginx(domain);
-            
-            if (useSSL && domain) {
-                await setupSSL(domain);
-            }
-            
-            await startServices();
-        }
-        
-        // Zusammenfassung anzeigen
-        await showSummary(baseDir, domain, useSSL);
-        
-    } catch (error) {
-        console.log(colors.red + `\n❌ KRITISCHER FEHLER: ${error.message}` + colors.reset);
-        console.log(colors.yellow + '🔧 TROUBLESHOOTING:' + colors.reset);
-        console.log('1. Prüfe die Logs oben auf Fehler');
-        console.log('2. Stelle sicher, dass du root Rechte hast');
-        console.log('3. Überprüfe die Internetverbindung');
-        console.log('4. Starte das Script neu');
-        process.exit(1);
-    } finally {
-        rl.close();
-    }
+        if ask_yes_no "Setup Nginx reverse proxy?"; then
+            CUSTOM_NGINX=true
+        fi
+        if ask_yes_no "Configure firewall?"; then
+            CUSTOM_FIREWALL=true
+        fi
+        if [ -n "$DOMAIN" ] && ask_yes_no "Setup SSL certificate?"; then
+            CUSTOM_SSL=true
+        fi
+    fi
+    
+    # Start installation
+    echo -e "\n${BLUE}$MSG_START${NC}"
+    
+    # Step 1: Cleanup
+    cleanup_previous
+    
+    # Step 2: Update system
+    update_system
+    
+    # Step 3: Install Node.js
+    install_nodejs
+    
+    # Step 4: Install dependencies
+    install_dependencies
+    
+    # Step 5: Download ALL files
+    download_all_files
+    
+    # Step 6: Setup ServerSphere
+    setup_serversphere
+    
+    # Step 7: Setup systemd service
+    setup_systemd_service
+    
+    # Step 8: Additional setup based on installation type
+    case $INSTALL_TYPE in
+        1)
+            # Full installation
+            setup_nginx
+            setup_firewall
+            setup_ssl
+            ;;
+        2)
+            # ServerSphere only
+            echo "Skipping Nginx and Firewall setup..."
+            ;;
+        3)
+            # Custom installation
+            [ "$CUSTOM_NGINX" = true ] && setup_nginx
+            [ "$CUSTOM_FIREWALL" = true ] && setup_firewall
+            [ "$CUSTOM_SSL" = true ] && SSL=true && setup_ssl
+            ;;
+    esac
+    
+    # Step 9: Start services
+    start_services
+    
+    # Step 10: Show summary
+    show_summary
 }
 
-// Script ausführen
-if (require.main === module) {
-    main();
-}
+# ========== SCRIPT START ==========
 
-module.exports = { main };
+# Trap SIGINT (Ctrl+C) to exit cleanly
+trap 'echo -e "\n${RED}Installation interrupted${NC}"; exit 1' SIGINT
+
+# Run main function
+main
+
+exit 0
