@@ -181,24 +181,16 @@ check_root() {
 }
 
 check_required_tools() {
-    echo "Checking and installing required tools..."
+    echo "Checking required tools..."
     
-    # Update apt cache first
+    # Update apt cache
     apt-get update -qq 2>/dev/null || true
     
-    # Install lsof (for port management) - high priority
-    if ! command -v lsof &> /dev/null; then
-        echo "  Installing lsof..."
-        apt-get install -y lsof 2>&1 | grep -i "done\|installed" || true
-    fi
-    
-    # Check for essential tools
-    local required_tools=("curl" "wget" "git")
-    
-    for tool in "${required_tools[@]}"; do
-        if ! command -v "$tool" &> /dev/null; then
+    # Install curl and wget if missing
+    for tool in curl wget git unzip; do
+        if ! command -v $tool &> /dev/null; then
             echo "  Installing $tool..."
-            apt-get install -y "$tool" 2>&1 | grep -i "done\|installed" || true
+            apt-get install -y $tool 2>&1 | grep -i "done\|unpacking" | head -1 || true
         fi
     done
     
@@ -210,35 +202,27 @@ check_required_tools() {
 cleanup_previous() {
     print_step "$MSG_CLEANUP"
     
-    # Disable error exit for cleanup operations
-    set +e
-    
-    # Stop services with timeout
     echo "Stopping existing services..."
-    timeout 3 systemctl stop serversphere 2>/dev/null || true
+    systemctl stop serversphere 2>/dev/null &
+    SYSPID=$!
     sleep 1
+    kill -9 $SYSPID 2>/dev/null || true
     
     echo "Terminating Node.js processes..."
-    timeout 2 pkill -9 node 2>/dev/null || true
+    pkill -9 node 2>/dev/null || true
     sleep 1
     
-    # Skip port freeing for now - can cause hangs
-    echo "Cleaning up configuration files..."
-    
-    # Remove old installation
+    echo "Removing old installation..."
     rm -rf "$INSTALL_DIR" 2>/dev/null || true
+    
+    echo "Cleaning up config files..."
     rm -f /etc/systemd/system/serversphere.service 2>/dev/null || true
     rm -f /etc/nginx/sites-enabled/serversphere 2>/dev/null || true
     rm -f /etc/nginx/sites-available/serversphere 2>/dev/null || true
     
-    # Reload systemd
-    timeout 3 systemctl daemon-reload 2>/dev/null || true
-    
-    echo "Waiting for cleanup to finish..."
-    sleep 2
-    
-    # Re-enable error exit
-    set -e
+    echo "Reloading systemd..."
+    systemctl daemon-reload 2>/dev/null || true
+    sleep 1
     
     print_success "Cleanup completed"
 }
@@ -247,10 +231,10 @@ update_system() {
     print_step "$MSG_UPDATE"
     
     echo "Updating package lists..."
-    timeout 120 apt-get update -y 2>&1 | tail -3 || true
+    apt-get update -y 2>&1 | tail -2 || true
     
-    echo "Upgrading packages (this may take a moment)..."
-    timeout 300 apt-get upgrade -y 2>&1 | tail -3 || true
+    echo "Upgrading packages..."
+    apt-get upgrade -y 2>&1 | tail -2 || true
     
     print_success "System updated"
 }
@@ -258,16 +242,13 @@ update_system() {
 install_nodejs() {
     print_step "$MSG_NODE"
     
-    set +e
-    
     if ! command -v node &> /dev/null; then
         echo "Downloading Node.js setup script..."
-        timeout 60 curl -fsSL https://deb.nodesource.com/setup_20.x | timeout 30 bash - 2>&1 | tail -3 || true
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | tail -2 || true
         
         echo "Installing Node.js..."
-        timeout 120 apt-get install -y nodejs 2>&1 | tail -3 || {
+        apt-get install -y nodejs 2>&1 | tail -2 || {
             print_error "$MSG_ERROR_NODE"
-            set -e
             exit 1
         }
         print_success "Node.js installed: $(node --version)"
@@ -277,15 +258,11 @@ install_nodejs() {
     
     # Update npm
     echo "Updating npm..."
-    timeout 60 npm install -g npm@latest 2>&1 | tail -2 || true
-    
-    set -e
+    npm install -g npm@latest 2>&1 | tail -1 || true
 }
 
 install_dependencies() {
     print_step "$MSG_DEPS"
-    
-    set +e
     
     # Common dependencies
     DEPS_COMMON="git curl wget unzip build-essential python3 make g++ openjdk-17-jre-headless"
@@ -294,14 +271,12 @@ install_dependencies() {
     if [ "$INSTALL_TYPE" -eq 1 ] || [ "$INSTALL_TYPE" -eq 3 ]; then
         DEPS_FULL="nginx ufw certbot python3-certbot-nginx"
         echo "Installing full dependencies..."
-        timeout 300 apt-get install -y $DEPS_COMMON $DEPS_FULL 2>&1 | tail -5 || true
+        apt-get install -y $DEPS_COMMON $DEPS_FULL 2>&1 | tail -3 || true
     else
         # Minimal installation
         echo "Installing basic dependencies..."
-        timeout 300 apt-get install -y $DEPS_COMMON 2>&1 | tail -5 || true
+        apt-get install -y $DEPS_COMMON 2>&1 | tail -3 || true
     fi
-    
-    set -e
     
     print_success "Dependencies installed"
 }
